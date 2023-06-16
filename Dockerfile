@@ -1,60 +1,45 @@
-# Menggunakan image PHP 8.0 dengan modul yang dibutuhkan oleh Laravel
-FROM php:8.0-fpm
+# Gunakan base image resmi PHP dengan versi yang diinginkan
+FROM php:8.0-apache
 
-# Set direktori kerja aplikasi Laravel
-WORKDIR /var/www/html
-
-# Install dependensi yang diperlukan oleh Laravel
+# Install dependensi yang dibutuhkan oleh Laravel
 RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    zip \
+    libzip-dev \
     unzip \
     libonig-dev \
     libxml2-dev \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libzip-dev \
-    libwebp-dev \
-    libjpeg62-turbo-dev \
-    libmcrypt-dev \
-    libssl-dev \
-    libicu-dev \
-    libxslt1-dev \
-    libyaml-dev \
-    libsqlite3-dev \
-    && docker-php-ext-install \
-    bcmath \
-    ctype \
-    fileinfo \
-    json \
-    mbstring \
-    pdo \
-    pdo_mysql \
-    pdo_sqlite \
-    simplexml \
-    tokenizer \
-    xml \
-    xmlwriter \
-    xsl \
-    zip \
-    opcache \
-    && pecl install -o -f redis \
-    && pecl install mongodb \
-    && docker-php-ext-enable redis mongodb
+    mariadb-client \
+    libmagickwand-dev --no-install-recommends
+
+# Enable mod_rewrite untuk Apache
+RUN a2enmod rewrite
+
+# Install PHP extensions yang dibutuhkan oleh Laravel
+RUN docker-php-ext-install zip mbstring exif pcntl bcmath gd
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Copy kode aplikasi Laravel ke dalam image Docker
-COPY . .
+# Salin file composer.json dan composer.lock untuk menginstal dependensi PHP
+COPY composer.json composer.lock /var/www/
 
-# Install dependensi Laravel menggunakan Composer
-RUN composer install --no-scripts --no-autoloader && \
-    composer dump-autoload --optimize
+# Set direktori kerja
+WORKDIR /var/www
 
-# Set permission agar Laravel dapat menulis file log dan cache
-RUN chown -R www-data:www-data storage bootstrap/cache
+# Install dependensi PHP dengan Composer
+RUN composer install --no-scripts --no-autoloader
 
-# Jalankan per
+# Salin kode sumber Laravel
+COPY . /var/www
+
+# Generate autoload file dan kunci aplikasi
+RUN composer dump-autoload && \
+    php artisan key:generate
+
+# Berikan hak akses yang sesuai pada direktori penyimpanan
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+
+# Expose port yang digunakan oleh aplikasi Laravel
+EXPOSE 80
+
+# Jalankan Apache di foreground saat kontainer dimulai
+CMD ["apache2-foreground"]
