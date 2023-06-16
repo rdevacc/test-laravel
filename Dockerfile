@@ -1,30 +1,39 @@
-# Use the official PHP 8.0 image as the base image
-FROM php:8.0-fpm
+FROM php:7.4-fpm
 
-# Install required extensions and dependencies
-RUN apt-get update \
-    && apt-get install -y \
-       git \
-       unzip \
-       libzip-dev \
-    && docker-php-ext-install pdo_mysql zip
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    zip \
+    unzip \
+    curl
 
-# Copy the application code to the container
-COPY . /var/www/html
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd
 
-# Set the working directory
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Set working directory
 WORKDIR /var/www/html
 
-# Install Composer and project dependencies
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-RUN composer install --optimize-autoloader --no-dev
+# Copy application files
+COPY . /var/www/html
 
-# Set appropriate permissions
-RUN chown -R www-data:www-data /var/www/html
-RUN chmod -R 755 /var/www/html/storage
+# Install application dependencies
+RUN composer install
 
-# Expose port 80 (or any other port your Laravel application listens on)
-EXPOSE 80
+# Generate application key
+RUN php artisan key:generate
 
-# Start PHP-FPM server
+# Set file permissions
+RUN chown -R www-data:www-data /var/www/html/storage
+
+# Expose port 9000 and start PHP-FPM server
+EXPOSE 9000
 CMD ["php-fpm"]
