@@ -1,39 +1,60 @@
-FROM php:7.4-fpm
+# Menggunakan image PHP 8.0 dengan modul yang dibutuhkan oleh Laravel
+FROM php:8.0-fpm
 
-# Install dependencies
+# Set direktori kerja aplikasi Laravel
+WORKDIR /var/www/html
+
+# Install dependensi yang diperlukan oleh Laravel
 RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    libjpeg62-turbo-dev \
-    libpng-dev \
-    libfreetype6-dev \
-    libonig-dev \
-    libxml2-dev \
-    libzip-dev \
+    git \
+    curl \
     zip \
     unzip \
-    curl
-
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd
+    libonig-dev \
+    libxml2-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libzip-dev \
+    libwebp-dev \
+    libjpeg62-turbo-dev \
+    libmcrypt-dev \
+    libssl-dev \
+    libicu-dev \
+    libxslt1-dev \
+    libyaml-dev \
+    libsqlite3-dev \
+    && docker-php-ext-install \
+    bcmath \
+    ctype \
+    fileinfo \
+    json \
+    mbstring \
+    pdo \
+    pdo_mysql \
+    pdo_sqlite \
+    simplexml \
+    tokenizer \
+    xml \
+    xmlwriter \
+    xsl \
+    zip \
+    opcache \
+    && pecl install -o -f redis \
+    && pecl install mongodb \
+    && docker-php-ext-enable redis mongodb
 
 # Install Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Set working directory
-WORKDIR /var/www/html
+# Copy kode aplikasi Laravel ke dalam image Docker
+COPY . .
 
-# Copy application files
-COPY . /var/www/html
+# Install dependensi Laravel menggunakan Composer
+RUN composer install --no-scripts --no-autoloader && \
+    composer dump-autoload --optimize
 
-# Install application dependencies
-RUN composer install
+# Set permission agar Laravel dapat menulis file log dan cache
+RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Generate application key
-RUN php artisan key:generate
-
-# Set file permissions
-RUN chown -R www-data:www-data /var/www/html/storage
-
-# Expose port 9000 and start PHP-FPM server
-EXPOSE 9000
-CMD ["php-fpm"]
+# Jalankan per
